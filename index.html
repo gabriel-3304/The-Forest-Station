@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Deforestation Crypto Hack - Login</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <h1>🌳 Welcome to the Deforestation Crypto Hack! 🌳</h1>
+    
+    <div class="login-box">
+        <input id="name" placeholder="Your Name">
+        <input id="password" placeholder="Pick a Secret Password">
+        <button onclick="joinGame()">Join Game</button>
+        <p id="status"></p>
+    </div>
+
+    <div id="players"></div>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        const socket = io();
+
+        function joinGame() {
+            const name = document.getElementById('name').value.trim();
+            const password = document.getElementById('password').value.trim();
+
+            if (name === "" || password === "") {
+                document.getElementById('status').innerText = "Please enter both name and password!";
+                return;
+            }
+
+            socket.emit('join', {name, password});
+        }
+
+        socket.on('join_error', data => {
+            document.getElementById('status').innerText = data.error;
+        });
+
+        socket.on('player_list', list => {
+            document.getElementById('players').innerHTML = "<h3>Players Joined:</h3>" + list.join("<br>");
+            if (list.length === 2) {
+                window.location.href = "/quiz";
+            }
+        });
+    </script>
+</body>
+</html>
