@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Deforestation Crypto Hack - Quiz</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <h1>Deforestation Quiz Battle!</h1>
+
+    <div id="timer-bar"></div>
+    <div id="scoreboard"></div>
+    <div id="question-box"></div>
+    <div id="answer-feedback"></div>
+    <div id="options-box"></div>
+
+    <div id="hack-section" style="display:none;">
+        <p>Guess your opponent's password:</p>
+        <input id="hack-guess" placeholder="Password guess" />
+        <button onclick="attemptHack()">Try Hack</button>
+        <p id="hack-status"></p>
+    </div>
+
+    <button id="next-question-btn" onclick="nextQuestion()" disabled>Next Question</button>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="/static/script.js"></script>
+</body>
+</html>
