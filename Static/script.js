@@ -4,6 +4,7 @@ let timer;
 let timeLeft = 120; // 2 minutes
 let currentQuestion;
 let allPlayers = {};
+let selectedOption = null;
 
 // Initialize the game
 function initializeGame() {
@@ -49,36 +50,39 @@ function getQuestion() {
 }
 
 function submitAnswer() {
-    const answerInput = document.getElementById('answer');
-    const answer = answerInput.value.trim();
-
-    if (!answer) {
-        alert('Please enter an answer!');
+    if (selectedOption === null) {
+        alert('Please select an answer!');
         return;
     }
-    if (!currentQuestion || !currentQuestion.answer) {
+    if (!currentQuestion || !currentQuestion.options) {
         alert('No valid question available!');
         return;
     }
 
-    const correct = answer.toLowerCase() === currentQuestion.answer.toLowerCase();
-    const feedbackElement = document.getElementById('answer-feedback');
+    socket.emit('submit_answer', { 
+        name, 
+        selected_option: selectedOption,
+        correct_answer: currentQuestion.correct
+    });
+    
+    document.getElementById('submit-btn').disabled = true;
+    const optionButtons = document.querySelectorAll('.option-btn');
+    optionButtons.forEach(btn => btn.disabled = true);
+}
 
-    if (correct) {
-        playSound('correct-sound');
-        feedbackElement.innerText = "Correct! ✓";
-        feedbackElement.style.color = '#4caf50';
-    } else {
-        playSound('wrong-sound');
-        feedbackElement.innerText = `Wrong! The answer was: ${currentQuestion.answer}`;
-        feedbackElement.style.color = '#f44336';
-    }
-
-    socket.emit('submit_answer', { name, correct });
-    answerInput.disabled = true;
-    document.querySelector('#question-box button').disabled = true;
-
-    setTimeout(showOptions, 1500);
+function selectOption(index) {
+    selectedOption = index;
+    const optionButtons = document.querySelectorAll('.option-btn');
+    
+    optionButtons.forEach((btn, i) => {
+        if (i === index) {
+            btn.classList.add('selected');
+        } else {
+            btn.classList.remove('selected');
+        }
+    });
+    
+    document.getElementById('submit-btn').disabled = false;
 }
 
 function showOptions() {
@@ -144,12 +148,9 @@ function playSound(id) {
 }
 
 function resetQuestionUI() {
-    const answerInput = document.getElementById('answer');
-    const submitBtn = document.querySelector('#question-box button');
-
-    answerInput.value = "";
-    answerInput.disabled = false;
-    submitBtn.disabled = false;
+    selectedOption = null;
+    const submitBtn = document.getElementById('submit-btn');
+    submitBtn.disabled = true;
 
     document.getElementById('answer-feedback').innerText = "";
     document.getElementById('options-box').innerHTML = "";
@@ -158,12 +159,25 @@ function resetQuestionUI() {
 
 // Socket event listeners
 socket.on('question', q => {
-    if (!q || !q.question) {
+    if (!q || !q.question || !q.options) {
         console.error('Invalid question received:', q);
         return;
     }
     currentQuestion = q;
     document.getElementById('question').innerText = q.question;
+    
+    // Create option buttons
+    const optionsContainer = document.getElementById('options-container');
+    optionsContainer.innerHTML = '';
+    
+    q.options.forEach((option, index) => {
+        const button = document.createElement('button');
+        button.className = 'option-btn';
+        button.textContent = option;
+        button.onclick = () => selectOption(index);
+        optionsContainer.appendChild(button);
+    });
+    
     resetQuestionUI();
 });
 
@@ -183,6 +197,33 @@ socket.on('update_score', players => {
                  </p>`;
     });
     scoreboard.innerHTML = html;
+});
+
+socket.on('answer_result', data => {
+    const feedbackElement = document.getElementById('answer-feedback');
+    const correctAnswerText = currentQuestion.options[data.correct_answer];
+    
+    if (data.correct) {
+        playSound('correct-sound');
+        feedbackElement.innerText = "Correct! ✓";
+        feedbackElement.style.color = '#4caf50';
+    } else {
+        playSound('wrong-sound');
+        feedbackElement.innerText = `Wrong! The correct answer was: ${correctAnswerText}`;
+        feedbackElement.style.color = '#f44336';
+    }
+    
+    // Highlight correct answer
+    const optionButtons = document.querySelectorAll('.option-btn');
+    optionButtons.forEach((btn, index) => {
+        if (index === data.correct_answer) {
+            btn.classList.add('correct');
+        } else if (index === data.selected && !data.correct) {
+            btn.classList.add('wrong');
+        }
+    });
+
+    setTimeout(showOptions, 2000);
 });
 
 socket.on('power_result', power => {

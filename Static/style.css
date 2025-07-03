@@ -136,6 +136,55 @@ button:disabled {
   border-radius: 8px;
   border: none;
   font-size: 1.1em;
+  width: 90%;
+  max-width: 300px;
+  display: block;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.option-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
+}
+
+.option-btn.selected {
+  background: linear-gradient(135deg, #1976d2, #2196f3);
+  box-shadow: 0 0 15px rgba(33, 150, 243, 0.6);
+}
+
+.option-btn.correct {
+  background: linear-gradient(135deg, #4caf50, #81c784);
+  box-shadow: 0 0 15px rgba(76, 175, 80, 0.8);
+}
+
+.option-btn.wrong {
+  background: linear-gradient(135deg, #f44336, #e57373);
+  box-shadow: 0 0 15px rgba(244, 67, 54, 0.8);
+}
+
+#options-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin: 20px 0;
+}
+
+#submit-btn {
+  background: linear-gradient(135deg, #ff9800, #ffb74d);
+  color: white;
+  font-weight: bold;
+  padding: 12px 30px;
+  border-radius: 8px;
+  border: none;
+  font-size: 1.2em;
+  margin-top: 20px;
+}
+
+#submit-btn:disabled {
+  background: #666;
+  cursor: not-allowed;
 }
 
 .hack-btn {

@@ -12,16 +12,56 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 # Global game state
 players = {}
 questions = [
-    {"question": "What happens when too many trees are cut down?", "answer": "Deforestation"},
-    {"question": "Trees help clean the...?", "answer": "Air"},
-    {"question": "What do forests provide homes for?", "answer": "Animals"},
-    {"question": "What do trees produce that we breathe?", "answer": "Oxygen"},
-    {"question": "Cutting down forests is called...?", "answer": "Deforestation"},
-    {"question": "What grows in forests?", "answer": "Trees"},
-    {"question": "What gas do trees absorb from the atmosphere?", "answer": "Carbon Dioxide"},
-    {"question": "What is the main cause of Amazon rainforest destruction?", "answer": "Agriculture"},
-    {"question": "Trees prevent soil from washing away, this is called...?", "answer": "Erosion"},
-    {"question": "What climate change effect is worsened by deforestation?", "answer": "Global Warming"}
+    {
+        "question": "What happens when too many trees are cut down?",
+        "options": ["Deforestation", "Reforestation", "Afforestation", "Conservation"],
+        "correct": 0
+    },
+    {
+        "question": "Trees help clean the...?",
+        "options": ["Water", "Air", "Soil", "Ocean"],
+        "correct": 1
+    },
+    {
+        "question": "What do forests provide homes for?",
+        "options": ["Rocks", "Cars", "Animals", "Buildings"],
+        "correct": 2
+    },
+    {
+        "question": "What do trees produce that we breathe?",
+        "options": ["Carbon Dioxide", "Oxygen", "Nitrogen", "Methane"],
+        "correct": 1
+    },
+    {
+        "question": "Cutting down forests is called...?",
+        "options": ["Deforestation", "Planting", "Growing", "Watering"],
+        "correct": 0
+    },
+    {
+        "question": "What grows in forests?",
+        "options": ["Cars", "Trees", "Houses", "Roads"],
+        "correct": 1
+    },
+    {
+        "question": "What gas do trees absorb from the atmosphere?",
+        "options": ["Oxygen", "Nitrogen", "Carbon Dioxide", "Helium"],
+        "correct": 2
+    },
+    {
+        "question": "What is the main cause of Amazon rainforest destruction?",
+        "options": ["Tourism", "Agriculture", "Mining", "Pollution"],
+        "correct": 1
+    },
+    {
+        "question": "Trees prevent soil from washing away, this is called preventing...?",
+        "options": ["Erosion", "Growth", "Pollution", "Tourism"],
+        "correct": 0
+    },
+    {
+        "question": "What climate change effect is worsened by deforestation?",
+        "options": ["Snow", "Rain", "Global Warming", "Wind"],
+        "correct": 2
+    }
 ]
 
 prizes = ["Keychain", "Pencil", "Reusable Cutlery", "Nothing", "Draw Again"]
@@ -85,11 +125,20 @@ def handle_question():
 @socketio.on('submit_answer')
 def handle_answer(data):
     name = data.get('name')
-    correct = data.get('correct', False)
+    selected_option = data.get('selected_option')
+    correct_answer = data.get('correct_answer')
 
-    if name and name in players and correct:
-        players[name]['score'] += 1000
-        print(f"[SCORE] {name} scored 1000 points. Total: {players[name]['score']}")
+    if name and name in players:
+        correct = selected_option == correct_answer
+        if correct:
+            players[name]['score'] += 1000
+            print(f"[SCORE] {name} scored 1000 points. Total: {players[name]['score']}")
+        
+        emit('answer_result', {
+            'correct': correct,
+            'selected': selected_option,
+            'correct_answer': correct_answer
+        })
 
     emit('update_score', players, broadcast=True)
 
