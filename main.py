@@ -5,7 +5,7 @@ from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit
 import random
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='Static', static_url_path='/Static')
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
