@@ -1,173 +1,117 @@
-from flask import Flask, render_template, request
-from flask_socketio import SocketIO, emit
-import random
-import time
+    from flask import Flask, render_template
+    from flask_socketio import SocketIO, emit
+    import random
+    import eventlet
 
-app = Flask(__name__)
-socketio = SocketIO(app, async_mode='eventlet')
+    eventlet.monkey_patch()
 
-players = {}
-passwords = {}
-scores = {}
-hacked = {}
-can_spin_again = {}
-winner_drawn = {}
-leaderboard = {}
-game_started = False
-start_time = 0
+    app = Flask(__name__)
+    socketio = SocketIO(app)
 
-questions_pool = [
-    {"q": "What is deforestation?", "a": "Cutting down trees"},
-    {"q": "Why is deforestation bad?", "a": "It destroys animal homes"},
-    {"q": "What can we do to help?", "a": "Plant more trees"},
-    {"q": "Trees help make?", "a": "Oxygen"},
-    {"q": "What lives in forests?", "a": "Animals"},
-    {"q": "Cutting too many trees causes?", "a": "Less clean air"},
-    {"q": "Forests are homes for?", "a": "Wildlife"},
-    {"q": "Deforestation causes?", "a": "Climate change"},
-    {"q": "We should ____ trees.", "a": "Protect"},
-    {"q": "Who can help stop deforestation?", "a": "Everyone"},
-]
+    players = {}
+    questions = [
+        {"question": "What happens when too many trees are cut down?", "answer": "Deforestation"},
+        {"question": "Trees help clean the...?", "answer": "Air"},
+        {"question": "What do forests provide homes for?", "answer": "Animals"},
+        {"question": "What do trees produce that we breathe?", "answer": "Oxygen"},
+        {"question": "Cutting down forests is called...?", "answer": "Deforestation"},
+        {"question": "What grows in forests?", "answer": "Trees"},
+    ]
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+    prizes = ["Keychain", "Pencil", "Reusable Cutlery", "Nothing", "Draw Again"]
+    prize_probs = [25, 25, 25, 20, 5]
 
-@app.route('/quiz')
-def quiz():
-    return render_template('quiz.html')
-
-@app.route('/result')
-def result():
-    return render_template('result.html')
-
-@socketio.on('join')
-def handle_join(data):
-    global game_started, start_time
-    name = data['name']
-    password = data['password']
-    
-    if name in players or len(players) >= 2:
-        emit('join_error', {'error': 'Name taken or room full'})
-        return
-    
-    players[name] = request.sid
-    passwords[name] = password
-    scores[name] = 0
-    hacked[name] = False
-    can_spin_again[name] = False
-    winner_drawn[name] = False
-
-    emit('player_list', list(players.keys()), broadcast=True)
-
-    if len(players) == 2 and not game_started:
-        game_started = True
-        start_time = time.time()
-        emit('start_game', broadcast=True)
-
-@socketio.on('get_question')
-def send_question():
-    q = random.choice(questions_pool)
-    emit('question', q)
-
-@socketio.on('submit_answer')
-def handle_answer(data):
-    name = data['name']
-    correct = data['correct']
-    
-    if correct:
-        options = generate_options()
-    else:
-        options = ['Nothing', 'Nothing', 'Nothing']
-    
-    emit('options', options)
-
-@socketio.on('pick_option')
-def handle_pick(data):
-    name = data['name']
-    option = data['option']
-    
-    if option == 'Single Crypto':
-        scores[name] += 1000
-    elif option == 'Double Crypto':
-        scores[name] += 2000
-    elif option == 'Hack':
-        emit('hack_prompt', {'target': get_opponent(name)}, room=players[name])
-    elif option == 'Forest Bonus':
-        scores[name] += 500
-
-    emit('update_score', scores, broadcast=True)
-
-@socketio.on('attempt_hack')
-def handle_hack(data):
-    attacker = data['attacker']
-    guess = data['guess']
-    target = get_opponent(attacker)
-
-    if guess == passwords[target]:
-        stolen = scores[target] // 2
-        scores[attacker] += stolen
-        scores[target] -= stolen
-        emit('hack_result', {'success': True, 'attacker': attacker, 'stolen': stolen}, broadcast=True)
-    else:
-        emit('hack_result', {'success': False, 'attacker': attacker}, room=players[attacker])
-    
-    emit('update_score', scores, broadcast=True)
-
-@socketio.on('check_timer')
-def check_timer():
-    if time.time() - start_time >= 120:
-        emit('end_game', scores, broadcast=True)
-
-@socketio.on('lucky_draw')
-def handle_draw(data):
-    name = data['name']
-    if winner_drawn.get(name, False) and not can_spin_again[name]:
-        emit('draw_result', {'prize': 'Already Drawn'})
-        return
-
-    prize = random.choices(
-        ['Keychain', 'Pencil', 'Cutlery', 'Nothing', 'Draw Again'],
-        weights=[25, 25, 25, 20, 5],
-        k=1
-    )[0]
-
-    if prize == 'Draw Again':
-        can_spin_again[name] = True
-    else:
-        winner_drawn[name] = True
-        can_spin_again[name] = False
-
-    emit('draw_result', {'prize': prize})
-
-@socketio.on('update_leaderboard')
-def update_leaderboard(data):
-    winner = data['winner']
-    leaderboard[winner] = leaderboard.get(winner, 0) + 1
-    emit('leaderboard_update', leaderboard, broadcast=True)
-
-@socketio.on('reset_game')
-def reset_game():
-    global players, passwords, scores, hacked, can_spin_again, winner_drawn, game_started, start_time
-    players.clear()
-    passwords.clear()
-    scores.clear()
-    hacked.clear()
-    can_spin_again.clear()
-    winner_drawn.clear()
     game_started = False
-    start_time = 0
-    emit('game_reset', broadcast=True)
+    hacked_passwords = {}
+    drawn_players = set()
 
-def generate_options():
-    pool = ['Single Crypto', 'Double Crypto', 'Nothing', 'Hack', 'Forest Bonus']
-    return random.sample(pool, 3)
+    @app.route('/')
+    def index():
+        return render_template('index.html')
 
-def get_opponent(name):
-    for player in players:
-        if player != name:
-            return player
-    return None
+    @app.route('/quiz')
+    def quiz():
+        return render_template('quiz.html')
 
-if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=3000)
+    @app.route('/result')
+    def result():
+        return render_template('result.html')
+
+    @socketio.on('join')
+    def handle_join(data):
+        global game_started
+        name = data.get('name')
+        password = data.get('password')
+        print(f"Player joined: {name}")
+        if not name or not password:
+            emit('error', {'message': 'Name and password required.'})
+            return
+        if name not in players:
+            players[name] = {"score": 0, "password": password}
+            print(f"Added player: {name}. Total players: {len(players)}")
+        else:
+            print(f"Player {name} already joined.")
+        emit('players_update', list(players.keys()), broadcast=True)
+        if len(players) == 2 and not game_started:
+            game_started = True
+            print("Starting game - 2 players joined")
+            emit('start_game', broadcast=True)
+
+    @socketio.on('get_question')
+    def handle_question():
+        q = random.choice(questions)
+        emit('question', q)
+
+    @socketio.on('submit_answer')
+    def handle_answer(data):
+        name = data['name']
+        correct = data['correct']
+        if correct:
+            players[name]['score'] += 1000
+        emit('update_score', players, broadcast=True)
+
+    @socketio.on('power_up')
+    def handle_power_up(data):
+        power = random.choice(["Nothing", "Single Crypto", "Double Crypto"])
+        emit('power_result', power)
+
+    @socketio.on('hack_attempt')
+    def handle_hack(data):
+        hacker = data['hacker']
+        target = data['target']
+        guess = data['guess']
+        if players[target]['password'].lower() == guess.lower():
+            stolen = players[target]['score'] // 2
+            players[hacker]['score'] += stolen
+            players[target]['score'] -= stolen
+            emit('hack_result', {"success": True, "hacker": hacker, "target": target, "stolen": stolen}, broadcast=True)
+        else:
+            emit('hack_result', {"success": False, "hacker": hacker, "target": target}, broadcast=True)
+        emit('update_score', players, broadcast=True)
+
+    @socketio.on('get_scores')
+    def send_scores():
+        emit('update_score', players)
+
+    @socketio.on('lucky_draw')
+    def handle_draw(data):
+        name = data['name']
+        if name in drawn_players:
+            emit('draw_result', {"prize": "Already Drawn"})
+            return
+        prize = random.choices(prizes, weights=prize_probs, k=1)[0]
+        if prize != "Draw Again":
+            drawn_players.add(name)
+        emit('draw_result', {"prize": prize})
+
+    @socketio.on('reset')
+    def reset_game():
+        global players, game_started, drawn_players
+        players = {}
+        game_started = False
+        drawn_players = set()
+        emit('reset_game', broadcast=True)
+
+    if __name__ == '__main__':
+        print("Starting Flask-SocketIO server...")
+        socketio.run(app, host='0.0.0.0', port=5000, use_reloader=False, log_output=True)

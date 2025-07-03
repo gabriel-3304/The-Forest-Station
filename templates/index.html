@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Deforestation Quiz</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+      body {
+        font-family: 'Comic Sans MS', cursive, sans-serif;
+        background: linear-gradient(135deg, #0f0f0f, #1c1c1c);
+        color: #a5d6a7;
+        text-align: center;
+        margin: 0;
+        padding: 0;
+        position: relative;
+        overflow-x: hidden;
+        min-height: 100vh;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background:
+          repeating-linear-gradient(
+            45deg,
+            rgba(165, 214, 167, 0.07),
+            rgba(165, 214, 167, 0.07) 1px,
+            transparent 1px,
+            transparent 10px
+          );
+        pointer-events: none;
+        animation: moveLines 20s linear infinite;
+        z-index: 0;
+      }
+      @keyframes moveLines {
+        from { background-position: 0 0; }
+        to { background-position: 100px 100px; }
+      }
+      .login-box {
+        background: rgba(20, 40, 20, 0.9);
+        border-radius: 12px;
+        padding: 15px;
+        margin: 15vh auto;
+        width: 90%;
+        max-width: 400px;
+        box-shadow: 0 0 15px #4caf50;
+        position: relative;
+        z-index: 1;
+      }
+      input, button {
+        font-family: 'Comic Sans MS', cursive, sans-serif;
+        font-size: 1.2em;
+        color: #a5d6a7;
+        background-color: #222;
+        border: 1px solid #4caf50;
+        border-radius: 6px;
+        padding: 10px;
+        margin: 10px 5px;
+        width: calc(100% - 30px);
+        box-sizing: border-box;
+        cursor: pointer;
+      }
+      button:hover {
+        background-color: #388e3c;
+      }
+    </style>
+</head>
+<body>
+    <h1>Deforestation Quiz</h1>
+    <div class="login-box">
+        <input id="name" placeholder="Enter your name" autocomplete="off" />
+        <input id="password" placeholder="Pick your password" autocomplete="off" />
+        <button onclick="joinGame()">Join Game</button>
+    </div>
+    <script src="https://cdn.socket.io/4.3.2/socket.io.min.js"></script>
+    <script>
+        const socket = io();
+        function joinGame() {
+            const name = document.getElementById('name').value.trim();
+            const password = document.getElementById('password').value.trim();
+            if (name && password) {
+                sessionStorage.setItem('playerName', name);
+                socket.emit('join', {name, password});
+            }
+        }
+        socket.on('start_game', () => {
+            window.location.href = '/quiz';
+        });
+    </script>
+</body>
+</html>

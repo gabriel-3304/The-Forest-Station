@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Final Scores & Lucky Draw</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <h1>Final Scores</h1>
+    <div id="final-scores"></div>
+    <h2>Lucky Draw</h2>
+    <img id="wheel" src="/static/images/leaf1.png" width="200" alt="Prize Wheel">
+    <button id="spin-btn">Spin</button>
+    <p id="draw-result"></p>
+
+    <!-- Audio elements -->
+    <audio id="correct-sound" src="/static/sounds/correct.mp3" preload="auto"></audio>
+    <audio id="wrong-sound" src="/static/sounds/wrong.mp3" preload="auto"></audio>
+    <audio id="spin-sound" src="/static/sounds/spin.mp3" preload="auto"></audio>
+
+    <script src="https://cdn.socket.io/4.3.2/socket.io.min.js"></script>
+    <script>
+        const socket = io();
+        const name = sessionStorage.getItem('playerName');
+
+        // Helper function to play sound by id
+        function playSound(id) {
+            const sound = document.getElementById(id);
+            if (sound) {
+                sound.currentTime = 0;
+                sound.play();
+            }
+        }
+
+        document.getElementById('spin-btn').onclick = () => {
+            document.getElementById('draw-result').innerText = "Spinning...";
+            document.getElementById('spin-btn').disabled = true;
+            document.getElementById('wheel').style.transition = 'transform 2s ease-out';
+            document.getElementById('wheel').style.transform = `rotate(${Math.random() * 720 + 720}deg)`; // spin at least 2 full turns
+
+            playSound('spin-sound');
+
+            setTimeout(() => {
+                socket.emit('lucky_draw', {name});
+            }, 2000);
+        };
+
+        socket.emit('get_scores');
+        socket.on('update_score', players => {
+            let html = '';
+            for (const [p, data] of Object.entries(players)) {
+                html += `<p>${p}: ${data.score} points</p>`;
+            }
+            document.getElementById('final-scores').innerHTML = html;
+        });
+
+        socket.on('draw_result', data => {
+            document.getElementById('draw-result').innerText = `You got: ${data.prize}`;
+            if (data.prize === "Draw Again") {
+                document.getElementById('spin-btn').disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

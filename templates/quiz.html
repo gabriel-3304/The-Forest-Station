@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Deforestation Quiz</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <h1>Deforestation Quiz</h1>
+    <div id="scoreboard"></div>
+    <div id="timer-bar"><div id="timer-bar-fill"></div></div>
+    <div id="question-box">
+        <h2 id="question"></h2>
+        <input id="answer" placeholder="Your answer">
+        <button onclick="submitAnswer()">Submit</button>
+    </div>
+    <div id="answer-feedback"></div>
+    <div id="options-box"></div>
+    <div id="hack-section"></div>
+    <audio id="correct-sound" src="/static/sounds/correct.mp3"></audio>
+    <audio id="wrong-sound" src="/static/sounds/wrong.mp3"></audio>
+    <script src="https://cdn.socket.io/4.3.2/socket.io.min.js"></script>
+    <script src="/static/script.js"></script>
+</body>
+</html>

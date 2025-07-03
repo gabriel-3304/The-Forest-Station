@@ -1,0 +1,101 @@
+body {
+  font-family: 'Comic Sans MS', cursive, sans-serif;
+  background: linear-gradient(135deg, #0f0f0f, #1c1c1c);
+  color: #a5d6a7;
+  text-align: center;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+/* Animated diagonal lines overlay */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background:
+    repeating-linear-gradient(
+      45deg,
+      rgba(165, 214, 167, 0.07),
+      rgba(165, 214, 167, 0.07) 1px,
+      transparent 1px,
+      transparent 10px
+    );
+  pointer-events: none;
+  animation: moveLines 20s linear infinite;
+  z-index: 0;
+}
+
+@keyframes moveLines {
+  from { background-position: 0 0; }
+  to { background-position: 100px 100px; }
+}
+
+h1 {
+  margin-top: 20px;
+  color: #81c784;
+  text-shadow: 0 0 8px #81c784;
+  position: relative;
+  z-index: 1;
+}
+
+.login-box, #scoreboard, #question-box, #answer-feedback, #options-box, #hack-section {
+  background: rgba(20, 40, 20, 0.9);
+  border-radius: 12px;
+  padding: 15px;
+  margin: 15px auto;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 0 15px #4caf50;
+  position: relative;
+  z-index: 1;
+}
+
+input, button {
+  font-family: 'Comic Sans MS', cursive, sans-serif;
+  font-size: 1.2em;
+  color: #a5d6a7;
+  background-color: #222;
+  border: 1px solid #4caf50;
+  border-radius: 6px;
+  padding: 10px;
+  cursor: pointer;
+  position: relative;
+  z-index: 1;
+}
+
+button:hover {
+  background-color: #388e3c;
+}
+
+#timer-bar {
+  width: 80%;
+  height: 25px;
+  background-color: #333;
+  margin: 10px auto;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: inset 0 0 8px #4caf50;
+  position: relative;
+  z-index: 1;
+}
+
+#timer-bar-fill {
+  height: 100%;
+  background-color: #81c784;
+  width: 100%;
+  transition: width 1s linear;
+}
+
+#wheel {
+  margin: 20px auto;
+  display: block;
+  border: 5px solid #4caf50;
+  border-radius: 50%;
+  background-color: #121;
+  box-shadow: 0 0 15px #4caf50;
+  position: relative;
+  z-index: 1;
+}
