@@ -2,7 +2,7 @@ import eventlet
 eventlet.monkey_patch()
 
 from flask import Flask, render_template, request
-from flask_socketio import SocketIO, emit, request as socketio_request
+from flask_socketio import SocketIO, emit
 import random
 
 app = Flask(__name__)
@@ -44,11 +44,11 @@ def result():
 
 @socketio.on('connect')
 def handle_connect():
-    print(f"[CONNECTION] Client connected: {socketio_request.sid}")
+    print(f"[CONNECTION] Client connected: {request.sid}")
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    print(f"[DISCONNECTION] Client disconnected: {socketio_request.sid}")
+    print(f"[DISCONNECTION] Client disconnected: {request.sid}")
 
 @socketio.on('join')
 def handle_join(data):
