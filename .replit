@@ -11,3 +11,15 @@ externalPort = 80
 [[ports]]
 localPort = 5000
 externalPort = 5000
+
+[workflows]
+runButton = "Start Quiz App"
+
+[[workflows.workflow]]
+name = "Start Quiz App"
+author = 44519843
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python main.py"
