@@ -1,16 +1,181 @@
+
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Final Scores & Lucky Draw</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deforestation Quiz - Results</title>
     <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .result-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .final-scores {
+            background: rgba(20, 40, 20, 0.9);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px auto;
+            box-shadow: 0 0 15px #4caf50;
+            border: 1px solid rgba(76, 175, 80, 0.3);
+        }
+        
+        .winner {
+            font-size: 1.5em;
+            color: #ffd700;
+            text-shadow: 0 0 10px #ffd700;
+            margin-bottom: 20px;
+        }
+        
+        .prize-section {
+            background: rgba(20, 40, 20, 0.9);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px auto;
+            box-shadow: 0 0 15px #4caf50;
+            border: 1px solid rgba(76, 175, 80, 0.3);
+        }
+        
+        #wheel {
+            width: 200px;
+            height: 200px;
+            margin: 20px auto;
+            background: conic-gradient(
+                #ff6b6b 0deg 72deg,
+                #4ecdc4 72deg 144deg,
+                #45b7d1 144deg 216deg,
+                #f9ca24 216deg 288deg,
+                #6c5ce7 288deg 360deg
+            );
+            border-radius: 50%;
+            border: 5px solid #4caf50;
+            position: relative;
+            transition: transform 2s ease-out;
+        }
+        
+        #wheel::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-top: 20px solid #4caf50;
+        }
+        
+        .wheel-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        #spin-btn {
+            background: linear-gradient(135deg, #6c5ce7, #a55eea);
+            color: white;
+            font-size: 1.3em;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            margin: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        #spin-btn:hover:not(:disabled) {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(108, 92, 231, 0.4);
+        }
+        
+        #spin-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        #draw-result {
+            font-size: 1.4em;
+            font-weight: bold;
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            min-height: 30px;
+        }
+        
+        .prize-won {
+            background: rgba(76, 175, 80, 0.3);
+            color: #4caf50;
+            border: 2px solid #4caf50;
+        }
+        
+        .no-prize {
+            background: rgba(158, 158, 158, 0.3);
+            color: #9e9e9e;
+            border: 2px solid #9e9e9e;
+        }
+        
+        .try-again {
+            background: rgba(255, 193, 7, 0.3);
+            color: #ffc107;
+            border: 2px solid #ffc107;
+        }
+        
+        .action-buttons {
+            margin: 30px 0;
+        }
+        
+        .action-buttons button {
+            margin: 10px;
+            padding: 12px 25px;
+            font-size: 1.1em;
+        }
+        
+        .reset-btn {
+            background: linear-gradient(135deg, #f44336, #e57373);
+            color: white;
+            border: none;
+        }
+        
+        .play-again-btn {
+            background: linear-gradient(135deg, #4caf50, #81c784);
+            color: white;
+            border: none;
+        }
+    </style>
 </head>
 <body>
-    <h1>Final Scores</h1>
-    <div id="final-scores"></div>
-    <h2>Lucky Draw</h2>
-    <img id="wheel" src="/static/images/leaf1.png" width="200" alt="Prize Wheel">
-    <button id="spin-btn">Spin</button>
-    <p id="draw-result"></p>
+    <div class="result-container">
+        <h1>🏆 Game Results 🏆</h1>
+        
+        <div class="final-scores">
+            <h2>Final Scores</h2>
+            <div id="final-scores"></div>
+            <div id="winner-announcement" class="winner"></div>
+        </div>
+        
+        <div class="prize-section">
+            <h2>🎁 Lucky Draw 🎁</h2>
+            <p>Spin the wheel to win a prize!</p>
+            <div id="wheel">
+                <div class="wheel-text">SPIN!</div>
+            </div>
+            <button id="spin-btn">Spin the Wheel!</button>
+            <div id="draw-result"></div>
+        </div>
+        
+        <div class="action-buttons">
+            <button class="play-again-btn" onclick="playAgain()">Play Again</button>
+            <button class="reset-btn" onclick="resetGame()">Reset Game</button>
+        </div>
+    </div>
 
     <!-- Audio elements -->
     <audio id="correct-sound" src="/static/sounds/correct.mp3" preload="auto"></audio>
@@ -22,20 +187,35 @@
         const socket = io();
         const name = sessionStorage.getItem('playerName');
 
-        // Helper function to play sound by id
         function playSound(id) {
             const sound = document.getElementById(id);
             if (sound) {
                 sound.currentTime = 0;
-                sound.play();
+                sound.play().catch(e => console.log('Could not play sound:', e));
+            }
+        }
+        
+        function playAgain() {
+            window.location.href = '/';
+        }
+        
+        function resetGame() {
+            if (confirm('Are you sure you want to reset the entire game? This will clear all scores.')) {
+                socket.emit('reset');
             }
         }
 
         document.getElementById('spin-btn').onclick = () => {
-            document.getElementById('draw-result').innerText = "Spinning...";
-            document.getElementById('spin-btn').disabled = true;
-            document.getElementById('wheel').style.transition = 'transform 2s ease-out';
-            document.getElementById('wheel').style.transform = `rotate(${Math.random() * 720 + 720}deg)`; // spin at least 2 full turns
+            const drawResult = document.getElementById('draw-result');
+            const spinBtn = document.getElementById('spin-btn');
+            const wheel = document.getElementById('wheel');
+            
+            drawResult.textContent = "Spinning...";
+            drawResult.className = "";
+            spinBtn.disabled = true;
+            
+            wheel.style.transition = 'transform 2s ease-out';
+            wheel.style.transform = `rotate(${Math.random() * 720 + 1440}deg)`;
 
             playSound('spin-sound');
 
@@ -45,20 +225,74 @@
         };
 
         socket.emit('get_scores');
+        
         socket.on('update_score', players => {
+            const sortedPlayers = Object.entries(players).sort((a, b) => b[1].score - a[1].score);
             let html = '';
-            for (const [p, data] of Object.entries(players)) {
-                html += `<p>${p}: ${data.score} points</p>`;
-            }
+            
+            sortedPlayers.forEach(([playerName, data], index) => {
+                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+                const isCurrentPlayer = playerName === name;
+                html += `
+                    <p style="${isCurrentPlayer ? 'font-weight: bold; color: #81c784; font-size: 1.2em;' : ''}">
+                        ${medal} ${playerName}: ${data.score} points
+                    </p>`;
+            });
+            
             document.getElementById('final-scores').innerHTML = html;
+            
+            // Announce winner
+            if (sortedPlayers.length > 0) {
+                const winner = sortedPlayers[0];
+                const winnerName = winner[0];
+                const winnerScore = winner[1].score;
+                const isWinner = winnerName === name;
+                
+                const announcement = document.getElementById('winner-announcement');
+                if (isWinner) {
+                    announcement.textContent = `🎉 Congratulations! You won with ${winnerScore} points! 🎉`;
+                    announcement.style.color = '#ffd700';
+                } else {
+                    announcement.textContent = `👑 ${winnerName} wins with ${winnerScore} points! 👑`;
+                    announcement.style.color = '#81c784';
+                }
+            }
         });
 
         socket.on('draw_result', data => {
-            document.getElementById('draw-result').innerText = `You got: ${data.prize}`;
-            if (data.prize === "Draw Again") {
-                document.getElementById('spin-btn').disabled = false;
+            const drawResult = document.getElementById('draw-result');
+            const spinBtn = document.getElementById('spin-btn');
+            const prize = data.prize;
+            
+            drawResult.textContent = `You got: ${prize}`;
+            
+            if (prize === "Nothing") {
+                drawResult.className = "no-prize";
+                playSound('wrong-sound');
+            } else if (prize === "Draw Again") {
+                drawResult.className = "try-again";
+                spinBtn.disabled = false;
+                spinBtn.textContent = "Spin Again!";
+                playSound('correct-sound');
+            } else if (prize === "Already Drawn" || prize === "Invalid player") {
+                drawResult.className = "no-prize";
+                playSound('wrong-sound');
+            } else {
+                drawResult.className = "prize-won";
+                playSound('correct-sound');
             }
         });
+        
+        socket.on('reset_game', () => {
+            alert('Game has been reset!');
+            window.location.href = '/';
+        });
+
+        // Initialize if no player name
+        if (!name) {
+            alert('No player data found. Redirecting to login...');
+            window.location.href = '/';
+        }
     </script>
 </body>
 </html>

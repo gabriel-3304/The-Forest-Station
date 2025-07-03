@@ -1,90 +1,159 @@
+
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Deforestation Quiz</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deforestation Quiz - Login</title>
     <link rel="stylesheet" href="/static/style.css">
     <style>
-      body {
-        font-family: 'Comic Sans MS', cursive, sans-serif;
-        background: linear-gradient(135deg, #0f0f0f, #1c1c1c);
-        color: #a5d6a7;
-        text-align: center;
-        margin: 0;
-        padding: 0;
-        position: relative;
-        overflow-x: hidden;
-        min-height: 100vh;
-      }
-      body::before {
-        content: "";
-        position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background:
-          repeating-linear-gradient(
-            45deg,
-            rgba(165, 214, 167, 0.07),
-            rgba(165, 214, 167, 0.07) 1px,
-            transparent 1px,
-            transparent 10px
-          );
-        pointer-events: none;
-        animation: moveLines 20s linear infinite;
-        z-index: 0;
-      }
-      @keyframes moveLines {
-        from { background-position: 0 0; }
-        to { background-position: 100px 100px; }
-      }
       .login-box {
-        background: rgba(20, 40, 20, 0.9);
-        border-radius: 12px;
-        padding: 15px;
-        margin: 15vh auto;
-        width: 90%;
+        margin: 10vh auto;
         max-width: 400px;
-        box-shadow: 0 0 15px #4caf50;
-        position: relative;
-        z-index: 1;
       }
-      input, button {
-        font-family: 'Comic Sans MS', cursive, sans-serif;
-        font-size: 1.2em;
-        color: #a5d6a7;
-        background-color: #222;
+      
+      .error-message {
+        background: rgba(244, 67, 54, 0.2);
+        border: 1px solid #f44336;
+        color: #f44336;
+        padding: 15px;
+        border-radius: 8px;
+        margin: 15px auto;
+        max-width: 400px;
+        display: none;
+      }
+      
+      .instructions {
+        background: rgba(33, 150, 243, 0.2);
+        border: 1px solid #2196f3;
+        color: #64b5f6;
+        padding: 15px;
+        border-radius: 8px;
+        margin: 15px auto;
+        max-width: 400px;
+        font-size: 0.9em;
+        line-height: 1.4;
+      }
+      
+      .game-status {
+        background: rgba(76, 175, 80, 0.2);
         border: 1px solid #4caf50;
-        border-radius: 6px;
+        color: #4caf50;
         padding: 10px;
-        margin: 10px 5px;
-        width: calc(100% - 30px);
-        box-sizing: border-box;
-        cursor: pointer;
-      }
-      button:hover {
-        background-color: #388e3c;
+        border-radius: 8px;
+        margin: 10px auto;
+        max-width: 400px;
+        font-size: 0.9em;
       }
     </style>
 </head>
 <body>
-    <h1>Deforestation Quiz</h1>
-    <div class="login-box">
-        <input id="name" placeholder="Enter your name" autocomplete="off" />
-        <input id="password" placeholder="Pick your password" autocomplete="off" />
-        <button onclick="joinGame()">Join Game</button>
+    <h1>🌱 Deforestation Quiz 🌱</h1>
+    
+    <div class="instructions">
+        <h3>How to Play:</h3>
+        <ul style="text-align: left; max-width: 300px; margin: 0 auto;">
+            <li>Answer questions about deforestation</li>
+            <li>Earn points for correct answers</li>
+            <li>Use power-ups to gain extra points</li>
+            <li>Hack other players by guessing their passwords</li>
+            <li>Win prizes at the end!</li>
+        </ul>
     </div>
+    
+    <div class="login-box">
+        <h3>Join the Game</h3>
+        <input id="name" placeholder="Enter your name" autocomplete="off" maxlength="20" />
+        <input id="password" placeholder="Pick your password" autocomplete="off" maxlength="20" />
+        <button onclick="joinGame()" id="join-btn">Join Game</button>
+        <div id="player-count" class="game-status" style="display: none;"></div>
+    </div>
+    
+    <div id="error-message" class="error-message"></div>
+    
     <script src="https://cdn.socket.io/4.3.2/socket.io.min.js"></script>
     <script>
         const socket = io();
-        function joinGame() {
-            const name = document.getElementById('name').value.trim();
-            const password = document.getElementById('password').value.trim();
-            if (name && password) {
-                sessionStorage.setItem('playerName', name);
-                socket.emit('join', {name, password});
-            }
+        
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
         }
+        
+        function updatePlayerCount(players) {
+            const countDiv = document.getElementById('player-count');
+            const count = players.length;
+            countDiv.textContent = `Players online: ${count}/∞`;
+            countDiv.style.display = count > 0 ? 'block' : 'none';
+        }
+        
+        function joinGame() {
+            const nameInput = document.getElementById('name');
+            const passwordInput = document.getElementById('password');
+            const name = nameInput.value.trim();
+            const password = passwordInput.value.trim();
+            
+            if (!name) {
+                showError('Please enter your name!');
+                nameInput.focus();
+                return;
+            }
+            
+            if (!password) {
+                showError('Please pick a password!');
+                passwordInput.focus();
+                return;
+            }
+            
+            if (name.length < 2) {
+                showError('Name must be at least 2 characters long!');
+                nameInput.focus();
+                return;
+            }
+            
+            if (password.length < 3) {
+                showError('Password must be at least 3 characters long!');
+                passwordInput.focus();
+                return;
+            }
+            
+            sessionStorage.setItem('playerName', name);
+            
+            const joinBtn = document.getElementById('join-btn');
+            joinBtn.disabled = true;
+            joinBtn.textContent = 'Joining...';
+            
+            socket.emit('join', {name, password});
+        }
+        
+        // Handle Enter key
+        document.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                joinGame();
+            }
+        });
+        
         socket.on('start_game', () => {
             window.location.href = '/quiz';
         });
+        
+        socket.on('error', (data) => {
+            showError(data.message);
+            const joinBtn = document.getElementById('join-btn');
+            joinBtn.disabled = false;
+            joinBtn.textContent = 'Join Game';
+        });
+        
+        socket.on('players_update', (players) => {
+            updatePlayerCount(players);
+        });
+        
+        // Get initial player count
+        socket.emit('get_scores');
     </script>
 </body>
 </html>

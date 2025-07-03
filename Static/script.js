@@ -1,15 +1,43 @@
+
 const socket = io();
 const name = sessionStorage.getItem('playerName');
 let timer;
 let timeLeft = 120; // 2 minutes
+let currentQuestion;
+let allPlayers = {};
+
+// Initialize the game
+function initializeGame() {
+    if (!name) {
+        alert('No player name found. Redirecting to login...');
+        window.location.href = '/';
+        return;
+    }
+    
+    socket.emit('get_scores');
+    getQuestion();
+    startTimer();
+}
 
 function startTimer() {
     timer = setInterval(() => {
         timeLeft--;
         const percent = (timeLeft / 120) * 100;
         document.getElementById('timer-bar-fill').style.width = percent + "%";
+        
+        // Change color as time runs out
+        const timerFill = document.getElementById('timer-bar-fill');
+        if (percent > 50) {
+            timerFill.style.backgroundColor = '#81c784';
+        } else if (percent > 25) {
+            timerFill.style.backgroundColor = '#ffb74d';
+        } else {
+            timerFill.style.backgroundColor = '#e57373';
+        }
+        
         if (timeLeft <= 0) {
             clearInterval(timer);
+            alert('Time\'s up! Redirecting to results...');
             window.location.href = '/result';
         }
     }, 1000);
@@ -20,20 +48,40 @@ function getQuestion() {
 }
 
 function submitAnswer() {
-    const answer = document.getElementById('answer').value.trim();
+    const answerInput = document.getElementById('answer');
+    const answer = answerInput.value.trim();
+    
+    if (!answer) {
+        alert('Please enter an answer!');
+        return;
+    }
+    
+    if (!currentQuestion) {
+        alert('No question available!');
+        return;
+    }
+    
     const correctAnswer = currentQuestion.answer;
     const correct = answer.toLowerCase() === correctAnswer.toLowerCase();
 
+    const feedbackElement = document.getElementById('answer-feedback');
     if (correct) {
         playSound('correct-sound');
-        document.getElementById('answer-feedback').innerText = "Correct!";
+        feedbackElement.innerText = "Correct! ✓";
+        feedbackElement.style.color = '#4caf50';
     } else {
         playSound('wrong-sound');
-        document.getElementById('answer-feedback').innerText = `Wrong! The answer was: ${correctAnswer}`;
+        feedbackElement.innerText = `Wrong! The answer was: ${correctAnswer}`;
+        feedbackElement.style.color = '#f44336';
     }
 
     socket.emit('submit_answer', { name, correct });
-    showOptions();
+    answerInput.disabled = true;
+    document.querySelector('#question-box button').disabled = true;
+    
+    setTimeout(() => {
+        showOptions();
+    }, 1500);
 }
 
 function showOptions() {
@@ -42,7 +90,7 @@ function showOptions() {
 
     let html = "<h3>Pick one:</h3>";
     shuffled.forEach(opt => {
-        html += `<button onclick="handleOption('${opt}')">${opt}</button>`;
+        html += `<button class="option-btn" onclick="handleOption('${opt}')">${opt}</button>`;
     });
     document.getElementById('options-box').innerHTML = html;
 }
@@ -58,85 +106,130 @@ function handleOption(opt) {
 }
 
 function showHackSection() {
-    let html = "<h3>Who do you want to hack?</h3>";
-    for (const player in allPlayers) {
-        if (player !== name) {
-            html += `<button onclick="guessPassword('${player}')">${player}</button>`;
-        }
+    const otherPlayers = Object.keys(allPlayers).filter(player => player !== name);
+    
+    if (otherPlayers.length === 0) {
+        alert('No other players to hack!');
+        getQuestion();
+        return;
     }
+    
+    let html = "<h3>Who do you want to hack?</h3>";
+    otherPlayers.forEach(player => {
+        html += `<button class="hack-btn" onclick="guessPassword('${player}')">${player}</button>`;
+    });
+    html += `<button class="cancel-btn" onclick="cancelHack()">Cancel</button>`;
     document.getElementById('hack-section').innerHTML = html;
 }
 
 function guessPassword(target) {
     const guess = prompt(`Guess ${target}'s password:`);
-    if (guess) {
-        socket.emit('hack_attempt', { hacker: name, target, guess });
+    if (guess && guess.trim()) {
+        socket.emit('hack_attempt', { hacker: name, target, guess: guess.trim() });
     }
     document.getElementById('hack-section').innerHTML = "";
+}
+
+function cancelHack() {
+    document.getElementById('hack-section').innerHTML = "";
+    getQuestion();
 }
 
 function playSound(id) {
     const sound = document.getElementById(id);
     if (sound) {
-        sound.currentTime = 0;  // rewind so it can play repeatedly
-        sound.play();
+        sound.currentTime = 0;
+        sound.play().catch(e => console.log('Could not play sound:', e));
     }
 }
 
-let currentQuestion;
-let allPlayers = {};
-
-socket.emit('get_scores');
-getQuestion();
-startTimer();
-
-socket.on('question', q => {
-    currentQuestion = q;
-    document.getElementById('question').innerText = q.question;
-    document.getElementById('answer').value = "";
+function resetQuestionUI() {
+    const answerInput = document.getElementById('answer');
+    const submitBtn = document.querySelector('#question-box button');
+    
+    answerInput.value = "";
+    answerInput.disabled = false;
+    submitBtn.disabled = false;
+    
     document.getElementById('answer-feedback').innerText = "";
     document.getElementById('options-box').innerHTML = "";
     document.getElementById('hack-section').innerHTML = "";
+}
 
-    // Optional: If your questions have images, show them here
-    // if(q.image){
-    //     document.getElementById('question-image').src = q.image;
-    //     document.getElementById('question-image').style.display = 'block';
-    // } else {
-    //     document.getElementById('question-image').style.display = 'none';
-    // }
+// Socket event listeners
+socket.on('question', q => {
+    currentQuestion = q;
+    document.getElementById('question').innerText = q.question;
+    resetQuestionUI();
 });
 
 socket.on('update_score', players => {
     allPlayers = players;
     let html = "<h2>Scores:</h2>";
-    for (const [p, data] of Object.entries(players)) {
-        html += `<p>${p}: ${data.score} points</p>`;
-    }
+    const sortedPlayers = Object.entries(players).sort((a, b) => b[1].score - a[1].score);
+    
+    sortedPlayers.forEach(([playerName, data], index) => {
+        const isCurrentPlayer = playerName === name;
+        const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
+        html += `<p ${isCurrentPlayer ? 'style="font-weight: bold; color: #81c784;"' : ''}>
+                    ${medal} ${playerName}: ${data.score} points
+                 </p>`;
+    });
     document.getElementById('scoreboard').innerHTML = html;
 });
 
 socket.on('power_result', power => {
+    let message = "";
+    let points = 0;
+    
     if (power === "Double Crypto") {
-        allPlayers[name].score += 2000;
-        alert("You got Double Crypto! +2000 points");
+        points = 2000;
+        message = "You got Double Crypto! +2000 points 🎉";
+        playSound('correct-sound');
     } else if (power === "Single Crypto") {
-        allPlayers[name].score += 1000;
-        alert("You got Single Crypto! +1000 points");
+        points = 1000;
+        message = "You got Single Crypto! +1000 points 💰";
+        playSound('correct-sound');
     } else {
-        alert("You got Nothing!");
+        message = "You got Nothing! 😔";
     }
-    socket.emit('update_score', allPlayers);
-    getQuestion();
+    
+    alert(message);
+    
+    if (points > 0 && allPlayers[name]) {
+        allPlayers[name].score += points;
+        socket.emit('update_score', allPlayers);
+    }
+    
+    setTimeout(getQuestion, 1000);
 });
 
 socket.on('hack_result', data => {
     if (data.success) {
-        alert(`Successful hack! You stole ${data.stolen} points from ${data.target}`);
-        playSound('correct-sound'); // play success sound for hack
+        alert(`Successful hack! 🎯 You stole ${data.stolen} points from ${data.target}`);
+        playSound('correct-sound');
     } else {
-        alert("Hack failed! Wrong password.");
-        playSound('wrong-sound');  // play fail sound for hack
+        alert(`Hack failed! 🛡️ ${data.message || 'Wrong password.'}`);
+        playSound('wrong-sound');
     }
-    getQuestion();
+    setTimeout(getQuestion, 1000);
 });
+
+socket.on('error', data => {
+    alert(`Error: ${data.message}`);
+});
+
+// Handle Enter key in answer input
+document.addEventListener('DOMContentLoaded', () => {
+    const answerInput = document.getElementById('answer');
+    if (answerInput) {
+        answerInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !answerInput.disabled) {
+                submitAnswer();
+            }
+        });
+    }
+});
+
+// Initialize when page loads
+initializeGame();
