@@ -5,6 +5,11 @@ let timeLeft = 120; // 2 minutes
 let currentQuestion;
 let allPlayers = {};
 let selectedOption = null;
+let currentRound = 1;
+let maxRounds = 10;
+let battleStats = {};
+let questionStartTime = 0;
+let isFrozen = false;
 
 // Initialize the game
 function initializeGame() {
@@ -50,6 +55,11 @@ function getQuestion() {
 }
 
 function submitAnswer() {
+    if (isFrozen) {
+        alert('You are frozen! Wait a moment... ❄️');
+        return;
+    }
+    
     if (selectedOption === null) {
         alert('Please select an answer!');
         return;
@@ -59,10 +69,14 @@ function submitAnswer() {
         return;
     }
 
+    const answerTime = (Date.now() - questionStartTime) / 1000; // Time in seconds
+    
     socket.emit('submit_answer', { 
         name, 
         selected_option: selectedOption,
-        correct_answer: currentQuestion.correct
+        correct_answer: currentQuestion.correct,
+        difficulty: currentQuestion.difficulty || 'easy',
+        answer_time: answerTime
     });
     
     document.getElementById('submit-btn').disabled = true;
@@ -86,12 +100,15 @@ function selectOption(index) {
 }
 
 function showOptions() {
-    const options = ["Nothing", "Single Crypto", "Double Crypto", "Hack Player"];
+    const options = [
+        "🎯 Power-Up Spin", "💀 Hack Opponent", "⚡ Lightning Round", 
+        "🛡️ Defensive Play", "🔥 Aggressive Mode"
+    ];
     const shuffled = [...options].sort(() => Math.random() - 0.5).slice(0, 3);
 
-    let html = "<h3>Pick one:</h3>";
+    let html = "<h3>🎮 Choose Your Battle Move:</h3>";
     shuffled.forEach(opt => {
-        html += `<button class="option-btn" onclick="handleOption('${opt}')">${opt}</button>`;
+        html += `<button class="battle-btn" onclick="handleOption('${opt}')">${opt}</button>`;
     });
 
     document.getElementById('options-box').innerHTML = html;
@@ -100,10 +117,13 @@ function showOptions() {
 function handleOption(opt) {
     document.getElementById('options-box').innerHTML = "";
 
-    if (opt === "Hack Player") {
+    if (opt.includes("Hack")) {
         showHackSection();
+    } else if (opt.includes("Lightning")) {
+        // Skip to next question quickly
+        getQuestion();
     } else {
-        socket.emit('power_up');
+        socket.emit('power_up', {name});
     }
 }
 
@@ -163,7 +183,21 @@ socket.on('question', q => {
         return;
     }
     currentQuestion = q;
-    document.getElementById('question').innerText = q.question;
+    questionStartTime = Date.now(); // Track when question was shown
+    
+    let questionText = q.question;
+    if (q.speed_bonus) {
+        questionText = `⚡ SPEED BONUS: ${questionText}`;
+        playSound('correct-sound'); // Alert sound for speed bonus
+    }
+    
+    document.getElementById('question').innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <span style="font-size: 0.9em; color: #81c784;">Round ${currentRound}/${maxRounds}</span>
+            <span style="font-size: 0.8em; color: #ffb74d;">${q.difficulty?.toUpperCase() || 'EASY'}</span>
+        </div>
+        ${questionText}
+    `;
     
     // Create option buttons
     const optionsContainer = document.getElementById('options-container');
@@ -284,6 +318,57 @@ socket.on('hack_result', data => {
     }
     setTimeout(getQuestion, 1000);
 });
+
+socket.on('round_update', data => {
+    currentRound = data.round;
+    maxRounds = data.max_rounds;
+    console.log(`Round ${currentRound}/${maxRounds}`);
+});
+
+socket.on('battle_stats', stats => {
+    battleStats = stats;
+    updateBattleStats();
+});
+
+socket.on('freeze_player', data => {
+    if (data.frozen_player === name) {
+        isFrozen = true;
+        alert(`You've been frozen for ${data.duration} seconds! ❄️`);
+        
+        setTimeout(() => {
+            isFrozen = false;
+            alert('You can move again! 🔥');
+        }, data.duration * 1000);
+    } else {
+        alert(`${data.frozen_player} has been frozen! 😈`);
+    }
+});
+
+socket.on('question_skip', data => {
+    if (data.player !== name) {
+        alert(`${data.player} used Question Skip! Moving to next question...`);
+    }
+    setTimeout(getQuestion, 1000);
+});
+
+function updateBattleStats() {
+    const statsContainer = document.getElementById('battle-stats');
+    if (!statsContainer || !battleStats[name]) return;
+    
+    const stats = battleStats[name];
+    const accuracy = stats.correct + stats.wrong > 0 ? 
+        Math.round((stats.correct / (stats.correct + stats.wrong)) * 100) : 0;
+    
+    statsContainer.innerHTML = `
+        <div style="background: rgba(20, 40, 20, 0.9); padding: 15px; border-radius: 8px; margin: 10px 0;">
+            <h4 style="color: #81c784; margin: 0 0 10px 0;">📊 Your Battle Stats</h4>
+            <div style="display: flex; justify-content: space-between; font-size: 0.9em;">
+                <span>Accuracy: ${accuracy}%</span>
+                <span>Hacks: ${stats.hacks_successful}/${stats.hacks_successful + stats.hacks_failed}</span>
+            </div>
+        </div>
+    `;
+}
 
 socket.on('error', data => {
     alert(`Error: ${data.message}`);
