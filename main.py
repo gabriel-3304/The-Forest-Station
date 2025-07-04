@@ -105,6 +105,9 @@ power_ups = {}
 battle_stats = {}
 speed_bonus_active = False
 round_winner = None
+player_avatars = {}
+battle_commentary = []
+last_commentary_time = 0
 
 @app.route('/')
 def index():
@@ -144,7 +147,16 @@ def handle_join(data):
         emit('error', {'message': f'Player name "{name}" is already taken!'})
         return
 
-    players[name] = {"score": 0, "password": password, "lives": 3, "shield": False}
+    # Random avatar selection
+    forest_animals = ["🐻", "🦝", "🐿️", "🦌", "🐺", "🦊", "🐸", "🦉"]
+    available_avatars = [avatar for avatar in forest_animals if avatar not in player_avatars.values()]
+    if not available_avatars:
+        available_avatars = forest_animals
+    
+    selected_avatar = random.choice(available_avatars)
+    player_avatars[name] = selected_avatar
+    
+    players[name] = {"score": 0, "password": password, "lives": 3, "shield": False, "avatar": selected_avatar, "max_lives": 3}
     question_streak[name] = 0
     power_ups[name] = {"shield": 0, "double_points": 0, "steal": 0}
     battle_stats[name] = {"correct": 0, "wrong": 0, "hacks_successful": 0, "hacks_failed": 0}
@@ -181,6 +193,39 @@ def handle_question():
         emit('question', q)
     else:
         emit('error', {'message': 'No questions available'})
+
+def generate_commentary(name, correct, streak, score_diff=0):
+    """Generate dynamic battle commentary"""
+    global battle_commentary, last_commentary_time
+    import time
+    
+    current_time = time.time()
+    if current_time - last_commentary_time < 2:  # Prevent spam
+        return
+    
+    last_commentary_time = current_time
+    
+    if correct:
+        if streak >= 5:
+            commentary = f"🔥 {name} is UNSTOPPABLE! {streak} in a row!"
+        elif streak >= 3:
+            commentary = f"⚡ {name} is on FIRE! {streak} streak!"
+        else:
+            commentary = f"💪 {name} strikes back!"
+    else:
+        commentary = f"💥 {name} takes a hit!"
+    
+    if abs(score_diff) < 500:
+        commentary += " 🔥 IT'S NECK AND NECK!"
+    elif score_diff > 1000:
+        leader = max(players.keys(), key=lambda x: players[x]['score'])
+        commentary += f" 📈 {leader} DOMINATES!"
+    
+    battle_commentary.append(commentary)
+    if len(battle_commentary) > 5:
+        battle_commentary.pop(0)
+    
+    emit('battle_commentary', {"message": commentary}, broadcast=True)
 
 @socketio.on('submit_answer')
 def handle_answer(data):
@@ -233,6 +278,21 @@ def handle_answer(data):
             # Lose a life for wrong answers
             players[name]['lives'] -= 1
             
+            # Trigger damage effect
+            emit('visual_damage', {
+                'player': name,
+                'damage_type': 'wrong_answer',
+                'lives_lost': 1
+            }, broadcast=True)
+            
+        # Generate dynamic commentary
+        score_diff = 0
+        if len(players) == 2:
+            scores = [players[p]['score'] for p in players.keys()]
+            score_diff = max(scores) - min(scores)
+        
+        generate_commentary(name, correct, question_streak[name], score_diff)
+        
         emit('answer_result', {
             'correct': correct,
             'selected': selected_option,
@@ -240,7 +300,12 @@ def handle_answer(data):
             'points_earned': total_points if correct else 0,
             'streak': question_streak[name],
             'lives_remaining': players[name]['lives'],
-            'round_winner': round_winner
+            'round_winner': round_winner,
+            'visual_effects': {
+                'type': 'correct' if correct else 'wrong',
+                'streak': question_streak[name],
+                'speed_bonus': speed_bonus_active and answer_time <= 5
+            }
         })
 
     emit('update_score', players, broadcast=True)
@@ -258,24 +323,36 @@ def handle_power_up(data):
     power = random.choices(power_options, weights=weights)[0]
     
     if name in players:
+        power_effect = {}
+        
         if power == "Shield Potion":
             power_ups[name]["shield"] += 1
             players[name]["shield"] = True
+            power_effect = {"type": "shield", "glow": True}
         elif power == "Double Points":
             power_ups[name]["double_points"] += 2  # Next 2 correct answers are doubled
+            power_effect = {"type": "double_points", "sparkle": True}
         elif power == "Steal Points":
             power_ups[name]["steal"] += 1
+            power_effect = {"type": "steal", "dark_energy": True}
         elif power == "Extra Life":
             players[name]["lives"] = min(players[name]["lives"] + 1, 5)  # Max 5 lives
+            power_effect = {"type": "extra_life", "heart_burst": True}
         elif power == "Question Skip":
             # Skip to next question immediately
             emit('question_skip', {"player": name}, broadcast=True)
+            power_effect = {"type": "skip", "lightning": True}
         elif power == "Freeze Opponent":
             opponent = [p for p in players.keys() if p != name][0]
             emit('freeze_player', {"frozen_player": opponent, "duration": 10}, broadcast=True)
+            power_effect = {"type": "freeze", "ice_crystals": True}
     
     print(f"[POWER-UP] {name} got: {power}")
-    emit('power_result', {"power": power, "player": name}, broadcast=True)
+    emit('power_result', {
+        "power": power, 
+        "player": name, 
+        "visual_effects": power_effect
+    }, broadcast=True)
     emit('update_score', players, broadcast=True)
 
 @socketio.on('hack_attempt')
@@ -327,7 +404,19 @@ def handle_hack(data):
                 "hacker": hacker, 
                 "target": target, 
                 "stolen": stolen,
-                "life_stolen": True
+                "life_stolen": True,
+                "visual_effects": {
+                    "type": "critical_hack",
+                    "screen_shake": True,
+                    "red_flash": True,
+                    "lightning_bolt": True
+                }
+            }, broadcast=True)
+            
+            # Epic commentary for critical hack
+            emit('battle_commentary', {
+                "message": f"💀 CRITICAL HIT! {hacker} devastates {target}! 💀",
+                "type": "critical"
             }, broadcast=True)
         else:
             battle_stats[hacker]["hacks_successful"] += 1
@@ -336,7 +425,12 @@ def handle_hack(data):
                 "success": True, 
                 "hacker": hacker, 
                 "target": target, 
-                "stolen": stolen
+                "stolen": stolen,
+                "visual_effects": {
+                    "type": "successful_hack",
+                    "energy_drain": True,
+                    "point_transfer": True
+                }
             }, broadcast=True)
     else:
         # Failed hack - hacker loses points as penalty

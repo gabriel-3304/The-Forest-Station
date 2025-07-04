@@ -320,6 +320,109 @@ button:disabled {
   }
 }
 
+/* Battle Animations */
+@keyframes screenShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+@keyframes speedBonus {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+@keyframes damageFlash {
+  0%, 100% { background: rgba(20, 40, 20, 0.9); }
+  50% { background: rgba(244, 67, 54, 0.3); }
+}
+
+@keyframes correctPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+@keyframes wrongShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+
+@keyframes sparkle {
+  0%, 100% { box-shadow: 0 0 15px #4caf50; }
+  50% { box-shadow: 0 0 25px #ffc107, 0 0 35px #ffeb3b; }
+}
+
+@keyframes heartBurst {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); box-shadow: 0 0 20px #e91e63; }
+}
+
+@keyframes redFlash {
+  0%, 100% { background: linear-gradient(135deg, #0f0f0f, #1c1c1c); }
+  50% { background: linear-gradient(135deg, #330000, #440000); }
+}
+
+@keyframes commentarySlide {
+  from { transform: translateX(100px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes criticalCommentary {
+  0% { transform: translateX(100px) scale(0.8); opacity: 0; }
+  50% { transform: translateX(0) scale(1.1); opacity: 1; }
+  100% { transform: translateX(0) scale(1); opacity: 1; }
+}
+
+@keyframes commentaryFadeOut {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(-100px); }
+}
+
+/* Player Cards */
+.player-card {
+  background: rgba(30, 60, 30, 0.8);
+  border-radius: 10px;
+  padding: 15px;
+  margin: 10px 0;
+  border: 2px solid #4caf50;
+  transition: all 0.3s ease;
+}
+
+.player-card.current-player {
+  border-color: #81c784;
+  box-shadow: 0 0 15px rgba(129, 199, 132, 0.5);
+}
+
+/* Battle Commentary */
+#battle-commentary {
+  max-width: 500px;
+  margin: 15px auto;
+  padding: 15px;
+  background: rgba(15, 30, 15, 0.9);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  min-height: 60px;
+  max-height: 200px;
+  overflow-y: auto;
+  position: relative;
+  z-index: 1;
+}
+
+.commentary-message {
+  animation: commentarySlide 0.5s ease-out;
+}
+
+/* Question Text Animation */
+.question-text {
+  animation: typeWriter 1s steps(40, end);
+}
+
+@keyframes typeWriter {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
 /* Loading animation */
 .loading {
   opacity: 0.7;

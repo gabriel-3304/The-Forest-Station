@@ -10,6 +10,8 @@ let maxRounds = 10;
 let battleStats = {};
 let questionStartTime = 0;
 let isFrozen = false;
+let battleCommentary = [];
+let visualEffectsActive = false;
 
 // Initialize the game
 function initializeGame() {
@@ -166,6 +168,123 @@ function playSound(id) {
     }
 }
 
+function generateHealthBar(lives, maxLives) {
+    const hearts = [];
+    for (let i = 0; i < maxLives; i++) {
+        if (i < lives) {
+            hearts.push('❤️');
+        } else {
+            hearts.push('🤍');
+        }
+    }
+    return `<div style="font-size: 1.2em; margin-top: 5px;">${hearts.join('')}</div>`;
+}
+
+function showSpeedBonusEffect() {
+    const body = document.body;
+    body.style.animation = 'speedBonus 0.5s ease-in-out';
+    setTimeout(() => {
+        body.style.animation = '';
+    }, 500);
+}
+
+function showScreenShake() {
+    const body = document.body;
+    body.style.animation = 'screenShake 0.5s ease-in-out';
+    setTimeout(() => {
+        body.style.animation = '';
+    }, 500);
+}
+
+function showVisualDamage(playerName, damageType) {
+    const scoreboard = document.getElementById('scoreboard');
+    if (scoreboard) {
+        scoreboard.style.animation = 'damageFlash 0.3s ease-in-out';
+        setTimeout(() => {
+            scoreboard.style.animation = '';
+        }, 300);
+    }
+    
+    if (damageType === 'critical') {
+        showScreenShake();
+        playSound('wrong-sound');
+    }
+}
+
+function showPowerUpEffect(effectType) {
+    const questionBox = document.getElementById('question-box');
+    if (!questionBox) return;
+    
+    switch (effectType) {
+        case 'shield':
+            questionBox.style.boxShadow = '0 0 20px #2196f3';
+            setTimeout(() => {
+                questionBox.style.boxShadow = '0 0 15px #4caf50';
+            }, 1000);
+            break;
+        case 'double_points':
+            questionBox.style.animation = 'sparkle 1s ease-in-out';
+            setTimeout(() => {
+                questionBox.style.animation = '';
+            }, 1000);
+            break;
+        case 'extra_life':
+            questionBox.style.animation = 'heartBurst 0.8s ease-in-out';
+            setTimeout(() => {
+                questionBox.style.animation = '';
+            }, 800);
+            break;
+    }
+}
+
+function showBattleCommentary(message, type = 'normal') {
+    const commentaryDiv = document.getElementById('battle-commentary');
+    if (!commentaryDiv) return;
+    
+    const commentaryElement = document.createElement('div');
+    commentaryElement.className = `commentary-message ${type}`;
+    commentaryElement.textContent = message;
+    commentaryElement.style.cssText = `
+        background: rgba(255, 193, 7, 0.2);
+        color: #ffc107;
+        padding: 8px 15px;
+        border-radius: 15px;
+        margin: 5px 0;
+        font-size: 0.9em;
+        font-weight: bold;
+        text-align: center;
+        animation: commentarySlide 0.5s ease-out;
+        border-left: 3px solid #ffc107;
+    `;
+    
+    if (type === 'critical') {
+        commentaryElement.style.background = 'rgba(244, 67, 54, 0.3)';
+        commentaryElement.style.color = '#f44336';
+        commentaryElement.style.borderLeftColor = '#f44336';
+        commentaryElement.style.animation = 'criticalCommentary 0.8s ease-out';
+    }
+    
+    commentaryDiv.appendChild(commentaryElement);
+    
+    // Remove old commentary
+    const messages = commentaryDiv.querySelectorAll('.commentary-message');
+    if (messages.length > 3) {
+        commentaryDiv.removeChild(messages[0]);
+    }
+    
+    // Auto-remove after 4 seconds
+    setTimeout(() => {
+        if (commentaryElement.parentNode) {
+            commentaryElement.style.animation = 'commentaryFadeOut 0.5s ease-in';
+            setTimeout(() => {
+                if (commentaryElement.parentNode) {
+                    commentaryDiv.removeChild(commentaryElement);
+                }
+            }, 500);
+        }
+    }, 4000);
+}
+
 function resetQuestionUI() {
     selectedOption = null;
     const submitBtn = document.getElementById('submit-btn');
@@ -189,15 +308,28 @@ socket.on('question', q => {
     if (q.speed_bonus) {
         questionText = `⚡ SPEED BONUS: ${questionText}`;
         playSound('correct-sound'); // Alert sound for speed bonus
+        showSpeedBonusEffect();
     }
     
-    document.getElementById('question').innerHTML = `
+    // Animated question reveal
+    const questionElement = document.getElementById('question');
+    questionElement.style.opacity = '0';
+    questionElement.style.transform = 'translateY(20px)';
+    
+    questionElement.innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
             <span style="font-size: 0.9em; color: #81c784;">Round ${currentRound}/${maxRounds}</span>
             <span style="font-size: 0.8em; color: #ffb74d;">${q.difficulty?.toUpperCase() || 'EASY'}</span>
         </div>
-        ${questionText}
+        <div class="question-text">${questionText}</div>
     `;
+    
+    // Animate question in
+    setTimeout(() => {
+        questionElement.style.transition = 'all 0.5s ease';
+        questionElement.style.opacity = '1';
+        questionElement.style.transform = 'translateY(0)';
+    }, 100);
     
     // Create option buttons
     const optionsContainer = document.getElementById('options-container');
@@ -225,21 +357,36 @@ socket.on('update_score', players => {
         const [leader, opponent] = sortedPlayers;
         const leadDifference = leader[1].score - opponent[1].score;
         
-        let html = "<h2>⚔️ Battle Status ⚔️</h2>";
-        html += `<div style="display: flex; justify-content: space-between; align-items: center;">`;
-        html += `<p style="${leader[0] === name ? 'font-weight: bold; color: #81c784;' : 'color: #ffb74d;'}">
-                    ${leader[0] === name ? '🔥 YOU' : leader[0]}: ${leader[1].score}
-                 </p>`;
-        html += `<p style="color: #fff; font-size: 0.9em;">VS</p>`;
-        html += `<p style="${opponent[0] === name ? 'font-weight: bold; color: #81c784;' : 'color: #ffb74d;'}">
-                    ${opponent[0] === name ? '🔥 YOU' : opponent[0]}: ${opponent[1].score}
-                 </p>`;
+        let html = "<h2>⚔️ Battle Royale ⚔️</h2>";
+        
+        // Player 1 (Leader) with avatar and health bar
+        html += `<div class="player-card ${leader[0] === name ? 'current-player' : ''}">`;
+        html += `<div style="display: flex; align-items: center; margin-bottom: 10px;">`;
+        html += `<span style="font-size: 2em; margin-right: 10px;">${leader[1].avatar || '🐻'}</span>`;
+        html += `<div style="flex: 1;">`;
+        html += `<div style="font-weight: bold; color: ${leader[0] === name ? '#81c784' : '#ffb74d'};">`;
+        html += `${leader[0] === name ? '🔥 YOU' : leader[0]}: ${leader[1].score}`;
         html += `</div>`;
+        html += generateHealthBar(leader[1].lives, leader[1].max_lives || 3);
+        html += `</div></div></div>`;
+        
+        html += `<div style="text-align: center; margin: 15px 0; font-size: 1.2em; color: #fff;">VS</div>`;
+        
+        // Player 2 (Opponent) with avatar and health bar
+        html += `<div class="player-card ${opponent[0] === name ? 'current-player' : ''}">`;
+        html += `<div style="display: flex; align-items: center; margin-bottom: 10px;">`;
+        html += `<span style="font-size: 2em; margin-right: 10px;">${opponent[1].avatar || '🦝'}</span>`;
+        html += `<div style="flex: 1;">`;
+        html += `<div style="font-weight: bold; color: ${opponent[0] === name ? '#81c784' : '#ffb74d'};">`;
+        html += `${opponent[0] === name ? '🔥 YOU' : opponent[0]}: ${opponent[1].score}`;
+        html += `</div>`;
+        html += generateHealthBar(opponent[1].lives, opponent[1].max_lives || 3);
+        html += `</div></div></div>`;
         
         if (leadDifference > 0) {
-            html += `<p style="color: #4caf50; font-size: 0.8em;">📈 ${leader[0]} leads by ${leadDifference} points!</p>`;
+            html += `<div style="color: #4caf50; font-size: 0.9em; margin-top: 15px;">📈 ${leader[0]} leads by ${leadDifference} points!</div>`;
         } else {
-            html += `<p style="color: #ffd700; font-size: 0.8em;">🔥 It's a tie!</p>`;
+            html += `<div style="color: #ffd700; font-size: 0.9em; margin-top: 15px;">🔥 DEAD HEAT!</div>`;
         }
         
         scoreboard.innerHTML = html;
@@ -261,48 +408,77 @@ socket.on('answer_result', data => {
     
     if (data.correct) {
         playSound('correct-sound');
-        feedbackElement.innerText = "Correct! ✓";
+        feedbackElement.innerHTML = "Correct! ✓";
         feedbackElement.style.color = '#4caf50';
+        
+        // Add streak effect
+        if (data.streak >= 3) {
+            feedbackElement.innerHTML += ` <span style="color: #ffc107;">🔥 ${data.streak} STREAK!</span>`;
+        }
+        
+        // Speed bonus effect
+        if (data.visual_effects && data.visual_effects.speed_bonus) {
+            feedbackElement.innerHTML += ` <span style="color: #e91e63;">⚡ SPEED BONUS!</span>`;
+            showSpeedBonusEffect();
+        }
     } else {
         playSound('wrong-sound');
-        feedbackElement.innerText = `Wrong! The correct answer was: ${correctAnswerText}`;
+        feedbackElement.innerHTML = `Wrong! The correct answer was: ${correctAnswerText}`;
         feedbackElement.style.color = '#f44336';
+        
+        // Show damage effect
+        showVisualDamage(name, 'normal');
     }
     
-    // Highlight correct answer
+    // Highlight correct answer with animation
     const optionButtons = document.querySelectorAll('.option-btn');
     optionButtons.forEach((btn, index) => {
         if (index === data.correct_answer) {
             btn.classList.add('correct');
+            btn.style.animation = 'correctPulse 0.5s ease-in-out';
         } else if (index === data.selected && !data.correct) {
             btn.classList.add('wrong');
+            btn.style.animation = 'wrongShake 0.5s ease-in-out';
         }
     });
 
     setTimeout(showOptions, 2000);
 });
 
-socket.on('power_result', power => {
-    let message = "";
-    let points = 0;
-
-    if (power === "Double Crypto") {
-        points = 2000;
-        message = "You got Double Crypto! +2000 points 🎉";
-        playSound('correct-sound');
-    } else if (power === "Single Crypto") {
-        points = 1000;
-        message = "You got Single Crypto! +1000 points 💰";
-        playSound('correct-sound');
-    } else {
-        message = "You got Nothing! 😔";
+socket.on('power_result', data => {
+    const power = data.power;
+    const effects = data.visual_effects || {};
+    
+    let message = `You got ${power}! `;
+    
+    switch (power) {
+        case "Shield Potion":
+            message += "🛡️ Protected from next attack!";
+            showPowerUpEffect('shield');
+            break;
+        case "Double Points":
+            message += "✨ Next answers worth 2x points!";
+            showPowerUpEffect('double_points');
+            break;
+        case "Extra Life":
+            message += "❤️ Gained a life!";
+            showPowerUpEffect('extra_life');
+            break;
+        case "Steal Points":
+            message += "🔮 Ready to steal!";
+            break;
+        case "Nothing":
+            message = "You got Nothing! 😔";
+            break;
+        default:
+            message += "⚡ Special power activated!";
     }
-
-    alert(message);
-
-    if (points > 0 && allPlayers[name]) {
-        allPlayers[name].score += points;
-        socket.emit('update_score', allPlayers);
+    
+    // Show power-up announcement
+    showBattleCommentary(message, 'normal');
+    
+    if (power !== "Nothing") {
+        playSound('correct-sound');
     }
 
     setTimeout(getQuestion, 1000);
@@ -310,10 +486,26 @@ socket.on('power_result', power => {
 
 socket.on('hack_result', data => {
     if (data.success) {
-        alert(`Successful hack! 🎯 You stole ${data.stolen} points from ${data.target}`);
-        playSound('correct-sound');
+        if (data.critical) {
+            showScreenShake();
+            showBattleCommentary(`💀 CRITICAL HACK! Stole ${data.stolen} points + life!`, 'critical');
+            playSound('wrong-sound'); // Dramatic sound for critical hit
+        } else {
+            showBattleCommentary(`🎯 Successful hack! Stole ${data.stolen} points!`, 'normal');
+            playSound('correct-sound');
+        }
+        
+        // Show hack visual effects
+        if (data.visual_effects) {
+            const effects = data.visual_effects;
+            if (effects.screen_shake) showScreenShake();
+            if (effects.red_flash) {
+                document.body.style.animation = 'redFlash 0.3s ease-in-out';
+                setTimeout(() => { document.body.style.animation = ''; }, 300);
+            }
+        }
     } else {
-        alert(`Hack failed! 🛡️ ${data.message || 'Wrong password.'}`);
+        showBattleCommentary(`🛡️ Hack failed! ${data.message || 'Wrong password.'}`, 'normal');
         playSound('wrong-sound');
     }
     setTimeout(getQuestion, 1000);
@@ -346,9 +538,19 @@ socket.on('freeze_player', data => {
 
 socket.on('question_skip', data => {
     if (data.player !== name) {
-        alert(`${data.player} used Question Skip! Moving to next question...`);
+        showBattleCommentary(`${data.player} used Question Skip! ⚡`);
     }
     setTimeout(getQuestion, 1000);
+});
+
+socket.on('battle_commentary', data => {
+    showBattleCommentary(data.message, data.type || 'normal');
+});
+
+socket.on('visual_damage', data => {
+    if (data.player === name) {
+        showVisualDamage(data.player, data.damage_type);
+    }
 });
 
 function updateBattleStats() {
