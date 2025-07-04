@@ -51,13 +51,13 @@
     <h1>🌱 Deforestation Quiz 🌱</h1>
     
     <div class="instructions">
-        <h3>How to Play:</h3>
+        <h3>🥊 1v1 Deforestation Battle!</h3>
         <ul style="text-align: left; max-width: 300px; margin: 0 auto;">
-            <li>Answer questions about deforestation</li>
+            <li>Challenge your opponent in eco-knowledge</li>
             <li>Earn points for correct answers</li>
-            <li>Use power-ups to gain extra points</li>
-            <li>Hack other players by guessing their passwords</li>
-            <li>Win prizes at the end!</li>
+            <li>Use power-ups to gain advantage</li>
+            <li>Hack your opponent by guessing their password</li>
+            <li>First to dominate wins the battle!</li>
         </ul>
     </div>
     
@@ -87,8 +87,14 @@
         function updatePlayerCount(players) {
             const countDiv = document.getElementById('player-count');
             const count = players.length;
-            countDiv.textContent = `Players online: ${count}/∞`;
-            countDiv.style.display = count > 0 ? 'block' : 'none';
+            if (count === 0) {
+                countDiv.textContent = `Waiting for players... (0/2)`;
+            } else if (count === 1) {
+                countDiv.textContent = `Waiting for opponent... (1/2)`;
+            } else {
+                countDiv.textContent = `Battle ready! (2/2)`;
+            }
+            countDiv.style.display = 'block';
         }
         
         function joinGame() {

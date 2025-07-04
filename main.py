@@ -100,6 +100,10 @@ def handle_join(data):
         emit('error', {'message': 'Name and password are required!'})
         return
 
+    if len(players) >= 2:
+        emit('error', {'message': 'Game is full! Only 2 players allowed.'})
+        return
+
     if name in players:
         emit('error', {'message': f'Player name "{name}" is already taken!'})
         return
@@ -109,9 +113,9 @@ def handle_join(data):
 
     emit('players_update', list(players.keys()), broadcast=True)
 
-    if len(players) >= 2 and not game_started:
+    if len(players) == 2 and not game_started:
         game_started = True
-        print("[GAME] Starting game with sufficient players.")
+        print("[GAME] Starting 1v1 game with 2 players.")
         emit('start_game', broadcast=True)
 
 @socketio.on('get_question')

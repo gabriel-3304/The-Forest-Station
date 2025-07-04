@@ -111,15 +111,14 @@ function showHackSection() {
     const otherPlayers = Object.keys(allPlayers).filter(player => player !== name);
 
     if (otherPlayers.length === 0) {
-        alert('No other players to hack!');
+        alert('No opponent to hack!');
         getQuestion();
         return;
     }
 
-    let html = "<h3>Who do you want to hack?</h3>";
-    otherPlayers.forEach(player => {
-        html += `<button class="hack-btn" onclick="guessPassword('${player}')">${player}</button>`;
-    });
+    const opponent = otherPlayers[0]; // In 1v1, there's only one opponent
+    let html = `<h3>💀 Hack ${opponent}? 💀</h3>`;
+    html += `<button class="hack-btn" onclick="guessPassword('${opponent}')">Steal Points from ${opponent}</button>`;
     html += `<button class="cancel-btn" onclick="cancelHack()">Cancel</button>`;
     document.getElementById('hack-section').innerHTML = html;
 }
@@ -186,17 +185,40 @@ socket.on('update_score', players => {
     const scoreboard = document.getElementById('scoreboard');
     if (!scoreboard) return;
 
-    let html = "<h2>Scores:</h2>";
     const sortedPlayers = Object.entries(players).sort((a, b) => b[1].score - a[1].score);
-
-    sortedPlayers.forEach(([playerName, data], index) => {
-        const isCurrentPlayer = playerName === name;
-        const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
-        html += `<p ${isCurrentPlayer ? 'style="font-weight: bold; color: #81c784;"' : ''}>
-                    ${medal} ${playerName}: ${data.score} points
+    
+    if (sortedPlayers.length === 2) {
+        const [leader, opponent] = sortedPlayers;
+        const leadDifference = leader[1].score - opponent[1].score;
+        
+        let html = "<h2>⚔️ Battle Status ⚔️</h2>";
+        html += `<div style="display: flex; justify-content: space-between; align-items: center;">`;
+        html += `<p style="${leader[0] === name ? 'font-weight: bold; color: #81c784;' : 'color: #ffb74d;'}">
+                    ${leader[0] === name ? '🔥 YOU' : leader[0]}: ${leader[1].score}
                  </p>`;
-    });
-    scoreboard.innerHTML = html;
+        html += `<p style="color: #fff; font-size: 0.9em;">VS</p>`;
+        html += `<p style="${opponent[0] === name ? 'font-weight: bold; color: #81c784;' : 'color: #ffb74d;'}">
+                    ${opponent[0] === name ? '🔥 YOU' : opponent[0]}: ${opponent[1].score}
+                 </p>`;
+        html += `</div>`;
+        
+        if (leadDifference > 0) {
+            html += `<p style="color: #4caf50; font-size: 0.8em;">📈 ${leader[0]} leads by ${leadDifference} points!</p>`;
+        } else {
+            html += `<p style="color: #ffd700; font-size: 0.8em;">🔥 It's a tie!</p>`;
+        }
+        
+        scoreboard.innerHTML = html;
+    } else {
+        let html = "<h2>Waiting for opponent...</h2>";
+        sortedPlayers.forEach(([playerName, data]) => {
+            const isCurrentPlayer = playerName === name;
+            html += `<p ${isCurrentPlayer ? 'style="font-weight: bold; color: #81c784;"' : ''}>
+                        ${playerName}: ${data.score} points
+                     </p>`;
+        });
+        scoreboard.innerHTML = html;
+    }
 });
 
 socket.on('answer_result', data => {
